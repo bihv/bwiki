@@ -5,6 +5,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { ZodError } from 'zod'
 
 import { createDocsRouter } from './routes/docs-routes'
+import { createDocsAdminAuth } from './services/admin-auth'
 import { createContentPathService } from './services/content-paths'
 import { InvalidContentPathError } from './services/content-paths'
 import {
@@ -41,8 +42,15 @@ async function pathExists(path: string) {
   }
 }
 
-export function createDocsApp(options: { contentRootPath?: string; runtimeRootPath?: string } = {}) {
+export function createDocsApp(
+  options: {
+    adminAuth?: { password?: string | null; username?: string | null }
+    contentRootPath?: string
+    runtimeRootPath?: string
+  } = {},
+) {
   const contentPathService = createContentPathService({ contentRootPath: options.contentRootPath })
+  const adminAuth = createDocsAdminAuth(options.adminAuth)
   const draftRepository = createDraftRepository({ contentPathService })
   const publishService = createPublishService({
     contentPathService,
@@ -54,7 +62,7 @@ export function createDocsApp(options: { contentRootPath?: string; runtimeRootPa
   const app = express()
 
   app.use(express.json())
-  app.use('/api/docs', createDocsRouter({ draftRepository, publishService, systemRepository }))
+  app.use('/api/docs', createDocsRouter({ adminAuth, draftRepository, publishService, systemRepository }))
   app.use(async (request, response, next) => {
     if (!['GET', 'HEAD'].includes(request.method) || /^\/api(?:\/|$)/.test(request.path)) {
       next()

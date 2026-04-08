@@ -108,6 +108,21 @@ const siteConfig: SiteConfig = {
   componentRegistry: ['Callout'],
   redirects: [{ from: 'config-redirect', to: 'getting-started/published-seed', locale: 'en', version: 'v2.0' }],
 }
+const authDisabledSession = {
+  authEnabled: false,
+  authenticated: true,
+  username: null,
+}
+const authEnabledSession = {
+  authEnabled: true,
+  authenticated: true,
+  username: 'admin',
+}
+const authRequiredSession = {
+  authEnabled: true,
+  authenticated: false,
+  username: null,
+}
 
 function keyFor(url: string, method = 'GET') {
   return `${method.toUpperCase()} ${url}`
@@ -123,11 +138,16 @@ function jsonResponse({ body, status = 200 }: MockResponse) {
 }
 
 function installFetchMock(handlers: Record<string, MockResponse[]>) {
+  const normalizedHandlers = { ...handlers }
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
     const method = init?.method ?? 'GET'
     const handlerKey = keyFor(url, method)
-    const queue = handlers[handlerKey]
+    const queue = normalizedHandlers[handlerKey]
+
+    if ((!queue || queue.length === 0) && handlerKey === keyFor('/api/docs/auth/session')) {
+      return jsonResponse({ body: authDisabledSession })
+    }
 
     if (!queue || queue.length === 0) {
       throw new Error(`Unhandled fetch: ${handlerKey}`)
@@ -158,6 +178,9 @@ function StoreProbe() {
 
   return (
     <div>
+      <div data-testid="auth-enabled">{String(store.authEnabled)}</div>
+      <div data-testid="auth-status">{store.authStatus}</div>
+      <div data-testid="auth-username">{store.authUsername ?? 'missing'}</div>
       <div data-testid="pages">{store.pages.map((page) => page.title).join(', ')}</div>
       <div data-testid="drafts">{store.drafts.map((draft) => draft.title).join(', ')}</div>
       <div data-testid="redirects">{store.redirects.length}</div>
@@ -165,6 +188,12 @@ function StoreProbe() {
       <div data-testid="history">{store.publishRecords.length}</div>
       <div data-testid="publish-status">{publishStatus?.status ?? 'missing'}</div>
       <div data-testid="locale-options">{store.localeOptions.map((locale) => locale.label).join(', ')}</div>
+      <button onClick={() => void store.login({ username: 'admin', password: 'secret' })} type="button">
+        Login Admin
+      </button>
+      <button onClick={() => void store.logout()} type="button">
+        Logout Admin
+      </button>
       <button onClick={() => void store.saveDraft(activeDraft)} type="button">
         Save Draft
       </button>
@@ -430,6 +459,69 @@ describe('DocsProvider', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('requires an authenticated admin session before hydrating admin data', async () => {
+    const fetchMock = installFetchMock({
+      [keyFor('/api/docs/auth/session')]: [{ body: authRequiredSession }, { body: authEnabledSession }],
+      [keyFor('/api/docs/auth/login', 'POST')]: [{ body: authEnabledSession }],
+      [keyFor('/api/docs/auth/logout', 'POST')]: [{ body: authRequiredSession }],
+      [keyFor('/api/docs/drafts')]: [{ body: { drafts: [draftPage] } }],
+      [keyFor('/api/docs/pages')]: [{ body: { pages: [publishedApiPage] } }],
+      [keyFor('/api/docs/system/redirects')]: [{ body: { redirects } }],
+      [keyFor('/api/docs/system/media')]: [{ body: { media } }],
+      [keyFor('/api/docs/system/publish-history')]: [{ body: { publishHistory } }],
+      [keyFor('/api/docs/system/site-config')]: [{ body: { siteConfig } }],
+      [keyFor('/api/docs/publish-status')]: [
+        {
+          body: {
+            status: 'ready',
+            currentBuildId: 'build-1',
+            lastSuccessfulBuildId: 'build-1',
+            queuedAt: null,
+            updatedAt: '2026-04-08T12:00:00.000Z',
+            error: null,
+          },
+        },
+      ],
+    })
+
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter initialEntries={['/admin']}>
+        <DocsProvider>
+          <StoreProbe />
+        </DocsProvider>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent('unauthenticated')
+    })
+
+    expect(screen.getByTestId('auth-enabled')).toHaveTextContent('true')
+    expect(screen.getByTestId('drafts')).toBeEmptyDOMElement()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls.some(([url]) => url === '/api/docs/drafts')).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: 'Login Admin' }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent('authenticated')
+    })
+
+    expect(screen.getByTestId('auth-username')).toHaveTextContent('admin')
+    expect(screen.getByTestId('drafts')).toHaveTextContent('API Draft')
+
+    await user.click(screen.getByRole('button', { name: 'Logout Admin' }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent('unauthenticated')
+    })
+
+    expect(screen.getByTestId('drafts')).toBeEmptyDOMElement()
+    expect(screen.getByTestId('publish-status')).toHaveTextContent('missing')
+  })
+
   it('keeps queued publish successful when publish-status refresh fails', async () => {
     const fetchMock = installFetchMock({
       [keyFor('/api/docs/drafts')]: [{ body: { drafts: [draftPage] } }],
@@ -598,15 +690,7 @@ describe('DocsProvider', () => {
   })
 
   it('ignores in-flight admin responses after navigating away from /admin', async () => {
-    const deferredResponses = {
-      drafts: createDeferredResponse(),
-      pages: createDeferredResponse(),
-      redirects: createDeferredResponse(),
-      media: createDeferredResponse(),
-      publishHistory: createDeferredResponse(),
-      siteConfig: createDeferredResponse(),
-      publishStatus: createDeferredResponse(),
-    }
+    const deferredSession = createDeferredResponse()
 
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
@@ -614,20 +698,8 @@ describe('DocsProvider', () => {
       const handlerKey = keyFor(url, method)
 
       switch (handlerKey) {
-        case keyFor('/api/docs/drafts'):
-          return deferredResponses.drafts.promise
-        case keyFor('/api/docs/pages'):
-          return deferredResponses.pages.promise
-        case keyFor('/api/docs/system/redirects'):
-          return deferredResponses.redirects.promise
-        case keyFor('/api/docs/system/media'):
-          return deferredResponses.media.promise
-        case keyFor('/api/docs/system/publish-history'):
-          return deferredResponses.publishHistory.promise
-        case keyFor('/api/docs/system/site-config'):
-          return deferredResponses.siteConfig.promise
-        case keyFor('/api/docs/publish-status'):
-          return deferredResponses.publishStatus.promise
+        case keyFor('/api/docs/auth/session'):
+          return deferredSession.promise
         default:
           throw new Error(`Unhandled fetch: ${handlerKey}`)
       }
@@ -650,24 +722,7 @@ describe('DocsProvider', () => {
 
     await user.click(screen.getByRole('button', { name: 'Go Home' }))
 
-    deferredResponses.drafts.resolve(jsonResponse({ body: { drafts: [draftPage] } }))
-    deferredResponses.pages.resolve(jsonResponse({ body: { pages: [publishedApiPage] } }))
-    deferredResponses.redirects.resolve(jsonResponse({ body: { redirects } }))
-    deferredResponses.media.resolve(jsonResponse({ body: { media } }))
-    deferredResponses.publishHistory.resolve(jsonResponse({ body: { publishHistory } }))
-    deferredResponses.siteConfig.resolve(jsonResponse({ body: { siteConfig } }))
-    deferredResponses.publishStatus.resolve(
-      jsonResponse({
-        body: {
-          status: 'ready',
-          currentBuildId: 'build-1',
-          lastSuccessfulBuildId: 'build-1',
-          queuedAt: null,
-          updatedAt: '2026-04-08T12:00:00.000Z',
-          error: null,
-        },
-      }),
-    )
+    deferredSession.resolve(jsonResponse({ body: authEnabledSession }))
 
     await waitFor(() => {
       expect(screen.getByText('Home')).toBeInTheDocument()
@@ -676,7 +731,7 @@ describe('DocsProvider', () => {
     expect(screen.getByTestId('drafts')).toBeEmptyDOMElement()
     expect(screen.getByTestId('redirects')).toHaveTextContent('0')
     expect(screen.getByTestId('publish-status')).toHaveTextContent('missing')
-    expect(fetchMock).toHaveBeenCalledTimes(7)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('ignores saveDraft state updates after navigating away from /admin', async () => {
@@ -706,6 +761,10 @@ describe('DocsProvider', () => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       const method = init?.method ?? 'GET'
       const handlerKey = keyFor(url, method)
+
+      if (handlerKey === keyFor('/api/docs/auth/session')) {
+        return jsonResponse({ body: authDisabledSession })
+      }
 
       if (handlerKey === keyFor('/api/docs/drafts/en/v2.0/guides/api-draft', 'PUT')) {
         return deferredSave.promise

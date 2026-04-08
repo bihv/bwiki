@@ -6,15 +6,24 @@ import { DOCS_STORAGE_KEYS, defaultDocsStorage, docsSiteConfig, type DocsRole, t
 import { buildDocSearch, validateDraft, type DraftDocInput, type DocPage, type PublishRecord, type RedirectRule, type SiteConfig } from '../lib/docs-engine'
 import {
   getPublishStatus as fetchPublishStatus,
+  loadDocsAdminSession,
   loadDocsAdminState,
+  loginDocsAdmin,
+  logoutDocsAdmin,
   publishDraft as queuePublishDraft,
   saveDraft as persistDraft,
+  UnauthorizedApiError,
+  type DocsAdminSession,
   type PublishStatus,
 } from './docs-api'
 
 type AdminStateStatus = 'loading' | 'ready' | 'error'
+type AdminAuthStatus = 'idle' | 'checking' | 'authenticated' | 'unauthenticated'
 
 interface DocsContextValue {
+  authEnabled: boolean
+  authStatus: AdminAuthStatus
+  authUsername: string | null
   adminStateError: string | null
   adminStateStatus: AdminStateStatus
   drafts: DocPage[]
@@ -31,6 +40,8 @@ interface DocsContextValue {
   publish: (draft: DraftDocInput, options?: { expectedUpdatedAt?: string }) => Promise<{ errors: string[] }>
   refreshAdminState: () => Promise<void>
   setRole: (role: DocsRole) => void
+  login: (credentials: { password: string; username: string }) => Promise<{ errors: string[] }>
+  logout: () => Promise<void>
   addRedirect: (rule: RedirectRule) => { errors: string[] }
   addMedia: (asset: MediaAsset) => { errors: string[] }
   searchDocs: (query: string, options: { locale: string; version: string; limit?: number }) => DocPage[]
@@ -90,6 +101,7 @@ export function DocsProvider({ children }: PropsWithChildren) {
   const location = useLocation()
   const adminSessionIdRef = useRef(0)
   const adminRequestIdRef = useRef(0)
+  const authEnabledRef = useRef(false)
   const [drafts, setDrafts] = useState<DocPage[]>([])
   const [pages, setPages] = useState<DocPage[]>(seedPages)
   const [publishRecords, setPublishRecords] = useState<PublishRecord[]>([])
@@ -99,10 +111,42 @@ export function DocsProvider({ children }: PropsWithChildren) {
   const [publishStatus, setPublishStatus] = useState<PublishStatus | null>(null)
   const [adminStateStatus, setAdminStateStatus] = useState<AdminStateStatus>('loading')
   const [adminStateError, setAdminStateError] = useState<string | null>(null)
-  const [role, setRole] = useState<DocsRole>(readRoleStorage)
+  const [role, setRoleState] = useState<DocsRole>(readRoleStorage)
+  const [authEnabled, setAuthEnabled] = useState(false)
+  const [authStatus, setAuthStatus] = useState<AdminAuthStatus>('idle')
+  const [authUsername, setAuthUsername] = useState<string | null>(null)
 
   const search = buildDocSearch(pages)
   const isAdminRoute = /^\/admin(?:\/|$)/.test(location.pathname)
+  const effectiveRole: DocsRole = authEnabled ? 'admin' : role
+
+  function applySessionState(session: DocsAdminSession) {
+    authEnabledRef.current = session.authEnabled
+    setAuthEnabled(session.authEnabled)
+    setAuthUsername(session.username)
+
+    if (!session.authEnabled) {
+      setAuthStatus('idle')
+      return
+    }
+
+    setAuthStatus(session.authenticated ? 'authenticated' : 'unauthenticated')
+  }
+
+  function clearAdminRouteData() {
+    setDrafts([])
+    setPages([])
+    setRedirects([])
+    setMedia([])
+    setPublishRecords([])
+    setSiteConfig(docsSiteConfig)
+    setPublishStatus(null)
+  }
+
+  function restoreReaderState() {
+    clearAdminRouteData()
+    setPages(seedPages)
+  }
 
   async function refreshAdminState() {
     if (!isAdminRoute) {
@@ -112,8 +156,23 @@ export function DocsProvider({ children }: PropsWithChildren) {
     const requestId = ++adminRequestIdRef.current
     setAdminStateStatus('loading')
     setAdminStateError(null)
+    setAuthStatus('checking')
 
     try {
+      const session = await loadDocsAdminSession()
+
+      if (adminRequestIdRef.current !== requestId) {
+        return
+      }
+
+      applySessionState(session)
+
+      if (session.authEnabled && !session.authenticated) {
+        clearAdminRouteData()
+        setAdminStateStatus('ready')
+        return
+      }
+
       const adminState = await loadDocsAdminState()
 
       if (adminRequestIdRef.current !== requestId) {
@@ -127,9 +186,23 @@ export function DocsProvider({ children }: PropsWithChildren) {
       setPublishRecords(adminState.publishRecords)
       setSiteConfig(adminState.siteConfig)
       setPublishStatus(adminState.publishStatus)
+      if (session.authEnabled) {
+        setRoleState('admin')
+      }
       setAdminStateStatus('ready')
     } catch (error) {
       if (adminRequestIdRef.current !== requestId) {
+        return
+      }
+
+      if (error instanceof UnauthorizedApiError) {
+        authEnabledRef.current = true
+        setAuthEnabled(true)
+        setAuthStatus('unauthenticated')
+        setAuthUsername(null)
+        clearAdminRouteData()
+        setAdminStateStatus('ready')
+        setAdminStateError(null)
         return
       }
 
@@ -144,16 +217,15 @@ export function DocsProvider({ children }: PropsWithChildren) {
       adminRequestIdRef.current += 1
       setAdminStateStatus('ready')
       setAdminStateError(null)
-      setDrafts([])
-      setPages(seedPages)
-      setRedirects([])
-      setMedia([])
-      setPublishRecords([])
-      setSiteConfig(docsSiteConfig)
-      setPublishStatus(null)
+      authEnabledRef.current = false
+      setAuthEnabled(false)
+      setAuthStatus('idle')
+      setAuthUsername(null)
+      restoreReaderState()
       return
     }
 
+    clearAdminRouteData()
     void refreshAdminState()
   }, [isAdminRoute, location.pathname])
 
@@ -164,6 +236,9 @@ export function DocsProvider({ children }: PropsWithChildren) {
   const activeSiteConfig = isAdminRoute ? siteConfig : docsSiteConfig
 
   const value: DocsContextValue = {
+    authEnabled,
+    authStatus,
+    authUsername,
     adminStateError,
     adminStateStatus,
     drafts,
@@ -173,7 +248,7 @@ export function DocsProvider({ children }: PropsWithChildren) {
     publishRecords,
     publishStatus,
     redirects,
-    role,
+    role: effectiveRole,
     siteConfig: activeSiteConfig,
     versionOptions: activeSiteConfig.versions,
     async saveDraft(draft) {
@@ -195,6 +270,14 @@ export function DocsProvider({ children }: PropsWithChildren) {
         setDrafts((currentDrafts) => withDocFirst(currentDrafts, savedDraft))
         return { draft: savedDraft, errors: [] }
       } catch (error) {
+        if (error instanceof UnauthorizedApiError) {
+          authEnabledRef.current = true
+          setAuthEnabled(true)
+          setAuthStatus('unauthenticated')
+          setAuthUsername(null)
+          clearAdminRouteData()
+        }
+
         return {
           errors: [error instanceof Error ? error.message : 'Failed to save draft'],
         }
@@ -214,7 +297,7 @@ export function DocsProvider({ children }: PropsWithChildren) {
       try {
         const queuedStatus = await queuePublishDraft({
           draft,
-          actor: createActor(role),
+          actor: createActor(effectiveRole),
           expectedUpdatedAt:
             options?.expectedUpdatedAt ??
             drafts.find((item) => docKey(item) === docKey(draft))?.updatedAt ??
@@ -250,13 +333,67 @@ export function DocsProvider({ children }: PropsWithChildren) {
 
         return { errors: [] }
       } catch (error) {
+        if (error instanceof UnauthorizedApiError) {
+          authEnabledRef.current = true
+          setAuthEnabled(true)
+          setAuthStatus('unauthenticated')
+          setAuthUsername(null)
+          clearAdminRouteData()
+        }
+
         return {
           errors: [error instanceof Error ? error.message : 'Failed to queue publish'],
         }
       }
     },
     refreshAdminState,
-    setRole,
+    setRole(nextRole) {
+      if (authEnabledRef.current) {
+        return
+      }
+
+      setRoleState(nextRole)
+    },
+    async login(credentials) {
+      try {
+        const session = await loginDocsAdmin(credentials)
+        applySessionState(session)
+        if (session.authEnabled) {
+          setRoleState('admin')
+        }
+        await refreshAdminState()
+        return { errors: [] }
+      } catch (error) {
+        if (error instanceof UnauthorizedApiError) {
+          authEnabledRef.current = true
+          setAuthEnabled(true)
+          setAuthStatus('unauthenticated')
+          setAuthUsername(null)
+          clearAdminRouteData()
+        }
+
+        return {
+          errors: [error instanceof Error ? error.message : 'Failed to sign in'],
+        }
+      }
+    },
+    async logout() {
+      try {
+        const session = await logoutDocsAdmin()
+        applySessionState(session)
+      } catch {
+        authEnabledRef.current = true
+        setAuthEnabled(true)
+        setAuthStatus('unauthenticated')
+        setAuthUsername(null)
+      }
+
+      adminSessionIdRef.current += 1
+      adminRequestIdRef.current += 1
+      setAdminStateError(null)
+      setAdminStateStatus('ready')
+      clearAdminRouteData()
+    },
     addRedirect(_rule) {
       return {
         errors: ['Redirect writes are not supported by the current docs API yet.'],

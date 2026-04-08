@@ -1,6 +1,13 @@
 import type { MediaAsset } from '../content/site-config'
 import type { DraftDocInput, DocPage, PublishActor, PublishRecord, RedirectRule, SiteConfig } from '../lib/docs-engine'
 
+export class UnauthorizedApiError extends Error {
+  constructor(message = 'Authentication required') {
+    super(message)
+    this.name = 'UnauthorizedApiError'
+  }
+}
+
 export interface PublishStatus {
   status: string
   currentBuildId: string | null
@@ -18,6 +25,12 @@ export interface DocsAdminState {
   publishRecords: PublishRecord[]
   siteConfig: SiteConfig
   publishStatus: PublishStatus
+}
+
+export interface DocsAdminSession {
+  authEnabled: boolean
+  authenticated: boolean
+  username: string | null
 }
 
 interface ApiErrorShape {
@@ -74,10 +87,31 @@ async function requestJson<T>(input: string, init?: RequestInit): Promise<T> {
   const payload = text ? (JSON.parse(text) as unknown) : null
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new UnauthorizedApiError(parseApiErrorMessage(payload, response.status))
+    }
+
     throw new Error(parseApiErrorMessage(payload, response.status))
   }
 
   return payload as T
+}
+
+export async function loadDocsAdminSession() {
+  return requestJson<DocsAdminSession>('/api/docs/auth/session')
+}
+
+export async function loginDocsAdmin(input: { password: string; username: string }) {
+  return requestJson<DocsAdminSession>('/api/docs/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function logoutDocsAdmin() {
+  return requestJson<DocsAdminSession>('/api/docs/auth/logout', {
+    method: 'POST',
+  })
 }
 
 export async function loadDocsAdminState(): Promise<DocsAdminState> {

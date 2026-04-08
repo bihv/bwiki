@@ -266,6 +266,105 @@ status: draft
     })
   })
 
+  it('requires env-backed admin login before allowing docs API mutations', async () => {
+    const contentRoot = await createTestContentRoot()
+    cleanupTasks.push(contentRoot.cleanup)
+
+    await contentRoot.writeContentFile(
+      'drafts/v2.0/en/guides/cli.mdx',
+      `---
+title: CLI Draft
+summary: Draft summary.
+slug: guides/cli
+section: Guides
+order: 3
+tags:
+  - cli
+translationKey: cli
+translationStatus: current
+status: draft
+---
+# Draft CLI
+`,
+    )
+
+    const app = createDocsApp({
+      adminAuth: {
+        username: 'admin',
+        password: 'secret',
+      },
+      contentRootPath: contentRoot.contentPath,
+    })
+    const agent = request.agent(app)
+
+    const unauthenticatedResponse = await agent.get('/api/docs/drafts')
+    expect(unauthenticatedResponse.status).toBe(401)
+    expect(unauthenticatedResponse.body).toEqual({
+      error: 'Authentication required',
+    })
+
+    const sessionBeforeLogin = await agent.get('/api/docs/auth/session')
+    expect(sessionBeforeLogin.status).toBe(200)
+    expect(sessionBeforeLogin.body).toEqual({
+      authEnabled: true,
+      authenticated: false,
+      username: null,
+    })
+
+    const badLoginResponse = await agent.post('/api/docs/auth/login').send({
+      username: 'admin',
+      password: 'wrong',
+    })
+    expect(badLoginResponse.status).toBe(401)
+    expect(badLoginResponse.body).toEqual({
+      error: 'Invalid username or password',
+    })
+
+    const loginResponse = await agent.post('/api/docs/auth/login').send({
+      username: 'admin',
+      password: 'secret',
+    })
+    expect(loginResponse.status).toBe(200)
+    expect(loginResponse.body).toEqual({
+      authEnabled: true,
+      authenticated: true,
+      username: 'admin',
+    })
+
+    const sessionAfterLogin = await agent.get('/api/docs/auth/session')
+    expect(sessionAfterLogin.status).toBe(200)
+    expect(sessionAfterLogin.body).toEqual({
+      authEnabled: true,
+      authenticated: true,
+      username: 'admin',
+    })
+
+    const authenticatedDrafts = await agent.get('/api/docs/drafts')
+    expect(authenticatedDrafts.status).toBe(200)
+    expect(authenticatedDrafts.body).toEqual({
+      drafts: [
+        expect.objectContaining({
+          title: 'CLI Draft',
+          slug: 'guides/cli',
+        }),
+      ],
+    })
+
+    const logoutResponse = await agent.post('/api/docs/auth/logout')
+    expect(logoutResponse.status).toBe(200)
+    expect(logoutResponse.body).toEqual({
+      authEnabled: true,
+      authenticated: false,
+      username: null,
+    })
+
+    const afterLogoutResponse = await agent.get('/api/docs/drafts')
+    expect(afterLogoutResponse.status).toBe(401)
+    expect(afterLogoutResponse.body).toEqual({
+      error: 'Authentication required',
+    })
+  })
+
   it('reports publish status and serves the currently promoted public build', async () => {
     const contentRoot = await createTestContentRoot()
     cleanupTasks.push(contentRoot.cleanup)

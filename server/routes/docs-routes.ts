@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express'
 import { z, ZodError } from 'zod'
 
+import type { createDocsAdminAuth } from '../services/admin-auth'
 import type { DraftRepository } from '../services/draft-repository'
 import type { PublishService } from '../services/publish-service'
 import type { SystemRepository } from '../services/system-repository'
@@ -44,6 +45,11 @@ const publishBodySchema = z.object({
   }),
 })
 
+const authLoginBodySchema = z.object({
+  password: z.string().min(1, 'Password is required'),
+  username: z.string().min(1, 'Username is required'),
+})
+
 function getSlugParam(rawSlug: string | string[] | undefined): string {
   if (Array.isArray(rawSlug)) {
     return rawSlug.join('/')
@@ -78,11 +84,58 @@ function parseDraftParams(rawParams: { locale?: string; version?: string; slug?:
 }
 
 export function createDocsRouter(input: {
+  adminAuth: ReturnType<typeof createDocsAdminAuth>
   draftRepository: DraftRepository
   publishService: PublishService
   systemRepository: SystemRepository
 }) {
   const router = Router()
+
+  router.get('/auth/session', (request, response) => {
+    response.json(input.adminAuth.getSession(request))
+  })
+
+  router.post('/auth/login', (request, response) => {
+    const body = authLoginBodySchema.parse(request.body)
+
+    if (!input.adminAuth.authEnabled) {
+      response.json(input.adminAuth.getSession(request))
+      return
+    }
+
+    if (!input.adminAuth.authenticateCredentials(body)) {
+      input.adminAuth.clearSession(response)
+      response.status(401).json({
+        error: 'Invalid username or password',
+      })
+      return
+    }
+
+    input.adminAuth.setAuthenticatedSession(response)
+    response.json({
+      authEnabled: true,
+      authenticated: true,
+      username: body.username,
+    })
+  })
+
+  router.post('/auth/logout', (_request, response) => {
+    input.adminAuth.clearSession(response)
+    response.json({
+      authEnabled: input.adminAuth.authEnabled,
+      authenticated: false,
+      username: null,
+    })
+  })
+
+  router.use((request, response, next) => {
+    if (request.path.startsWith('/auth/')) {
+      next()
+      return
+    }
+
+    input.adminAuth.requireAuth(request, response, next)
+  })
 
   router.get('/drafts', async (_request, response, next) => {
     try {

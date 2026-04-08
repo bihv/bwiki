@@ -63,9 +63,12 @@ function parseSelectedKey(selectedKey: string) {
 
 export function AdminPage() {
   const {
+    authEnabled,
+    authUsername,
     adminStateError,
     adminStateStatus,
     drafts,
+    logout,
     localeOptions,
     media,
     pages,
@@ -93,6 +96,7 @@ export function AdminPage() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [publishMessage, setPublishMessage] = useState<string | null>(null)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
   const redirectWriteMessage = 'Read-only: redirect writes are not supported by the current docs API yet.'
@@ -146,6 +150,12 @@ export function AdminPage() {
       ...currentDraft,
       [field]: field === 'tags' ? value.split(',').map((item) => item.trim()).filter(Boolean) : value,
     }))
+  }
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    await logout()
+    setIsLoggingOut(false)
   }
 
   const handleSaveDraft = async () => {
@@ -235,7 +245,11 @@ export function AdminPage() {
               <Group justify="space-between">
                 <div>
                   <Title order={2}>Editorial control room</Title>
-                  <Text c="dimmed">Switch roles, scan content health, then move into editor, redirect, or media workflows.</Text>
+                  <Text c="dimmed">
+                    {authEnabled
+                      ? 'Signed-in admins can review content health, manage drafts, and queue publishes from one place.'
+                      : 'Switch roles, scan content health, then move into editor, redirect, or media workflows.'}
+                  </Text>
                 </div>
                 <Group gap="sm">
                   <Button
@@ -247,15 +261,26 @@ export function AdminPage() {
                   >
                     Refresh API state
                   </Button>
-                  <SegmentedControl
-                    data={[
-                      { label: 'Admin', value: 'admin' },
-                      { label: 'Editor', value: 'editor' },
-                    ]}
-                    onChange={(value) => setRole(value as 'admin' | 'editor')}
-                    radius="xl"
-                    value={role}
-                  />
+                  {authEnabled ? (
+                    <>
+                      <Badge color="teal" radius="xl" size="lg" variant="light">
+                        Signed in as {authUsername ?? 'admin'}
+                      </Badge>
+                      <Button loading={isLoggingOut} onClick={() => void handleLogout()} radius="xl" variant="default">
+                        Sign out
+                      </Button>
+                    </>
+                  ) : (
+                    <SegmentedControl
+                      data={[
+                        { label: 'Admin', value: 'admin' },
+                        { label: 'Editor', value: 'editor' },
+                      ]}
+                      onChange={(value) => setRole(value as 'admin' | 'editor')}
+                      radius="xl"
+                      value={role}
+                    />
+                  )}
                 </Group>
               </Group>
               <Group gap="sm">
