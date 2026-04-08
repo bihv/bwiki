@@ -24,6 +24,24 @@ describe('createDocsApp', () => {
     cleanupTasks.push(contentRoot.cleanup)
 
     await contentRoot.writeContentFile(
+      'docs/v2.0/en/guides/published-cli.mdx',
+      `---
+title: Published CLI
+summary: Published summary.
+slug: guides/published-cli
+section: Guides
+order: 1
+tags:
+  - cli
+translationKey: published-cli
+translationStatus: current
+status: published
+---
+# Published CLI
+`,
+    )
+
+    await contentRoot.writeContentFile(
       'drafts/v2.0/en/guides/cli.mdx',
       `---
 title: CLI Draft
@@ -80,6 +98,19 @@ status: draft
           locale: 'en',
           version: 'v2.0',
           slug: 'guides/cli',
+        }),
+      ],
+    })
+
+    const pagesResponse = await request(app).get('/api/docs/pages')
+    expect(pagesResponse.status).toBe(200)
+    expect(pagesResponse.body).toEqual({
+      pages: [
+        expect.objectContaining({
+          title: 'Published CLI',
+          locale: 'en',
+          version: 'v2.0',
+          slug: 'guides/published-cli',
         }),
       ],
     })

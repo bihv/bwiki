@@ -13,7 +13,7 @@ import {
   type PublishRecord,
   validateDraft,
 } from '../../src/features/docs/lib/docs-engine'
-import { generateDocsArtifacts } from '../../scripts/docs/generate-docs-artifacts'
+import { generateDocsArtifacts as generateWorkspaceDocsArtifacts } from '../../scripts/docs/generate-docs-artifacts'
 import { DraftConflictError } from './draft-repository'
 import type { BuildState } from './system-repository'
 import { createBuildQueue, type BuildQueue } from './build-queue'
@@ -152,6 +152,7 @@ export interface PublishRequest {
 }
 
 export interface PublishService {
+  getPublishedPages: () => Promise<DocPage[]>
   getStatus: () => Promise<BuildState>
   getPublishHistory: () => Promise<PublishRecord[]>
   publish: (request: PublishRequest) => Promise<{ status: 'queued' }>
@@ -173,6 +174,7 @@ export interface PublishServiceOptions {
   contentPathService?: ContentPathService
   contentRootPath?: string
   createBuildId?: () => string
+  syncProjectArtifacts?: (input: { cwd: string }) => Promise<void>
   now?: () => string
   projectRootPath?: string
   publicBuildRepository?: PublicBuildRepository
@@ -462,11 +464,19 @@ export function createPublishService(options: PublishServiceOptions = {}): Publi
   const contentPathService =
     options.contentPathService ?? createContentPathService({ contentRootPath: options.contentRootPath })
   const contentRootPath = contentPathService.contentRootPath
+  const defaultContentRootPath = join(projectRootPath, 'content')
   const publicBuildRepository =
     options.publicBuildRepository ?? createPublicBuildRepository({ runtimeRootPath })
   const createBuildId = options.createBuildId ?? createDefaultBuildId
   const now = options.now ?? (() => new Date().toISOString())
   const runPublicBuild = options.runPublicBuild ?? defaultRunPublicBuild
+  const syncProjectArtifacts =
+    options.syncProjectArtifacts ??
+    (resolve(contentRootPath) === defaultContentRootPath
+      ? async ({ cwd }: { cwd: string }) => {
+          await generateWorkspaceDocsArtifacts({ cwd })
+        }
+      : async () => undefined)
   const writePublishedSource =
     options.writePublishedSource ??
     (async (input: { destinationPath: string; source: string }) => {
@@ -618,15 +628,24 @@ export function createPublishService(options: PublishServiceOptions = {}): Publi
     })
   }
 
+  async function removeDraftSource(draft: DraftDocInput & { order: number }) {
+    const draftLocation = contentPathService.resolveDraftLocation(draft)
+    await rm(draftLocation.absolutePath, { force: true })
+    return draftLocation.absolutePath
+  }
+
   async function restoreLiveSnapshot(input: {
     buildId: string
     buildStateSnapshot: FileSnapshot
+    draftSourcePath: string
+    draftSourceSnapshot: FileSnapshot
     publishHistorySnapshot: FileSnapshot
     publishedSourcePath: string
     publishedSourceSnapshot: FileSnapshot
   }) {
     await rm(publicBuildRepository.getPromotedBuildPath(input.buildId), { recursive: true, force: true })
     await restoreFileSnapshot(input.publishedSourcePath, input.publishedSourceSnapshot)
+    await restoreFileSnapshot(input.draftSourcePath, input.draftSourceSnapshot)
     await queueSystemFileTask(async () => {
       await restoreFileSnapshot(publishHistoryPath, input.publishHistorySnapshot)
       await restoreFileSnapshot(buildStatePath, input.buildStateSnapshot)
@@ -642,11 +661,13 @@ export function createPublishService(options: PublishServiceOptions = {}): Publi
     const stagedBuildPath = publicBuildRepository.getStagingBuildPath(buildId)
     const stagedPublishedDocPath = getPublishedDocAbsolutePath(join(workspaceRoot, 'content'), validated.draft)
     const livePublishedDocPath = getPublishedDocAbsolutePath(contentRootPath, validated.draft)
+    const liveDraftSourcePath = contentPathService.resolveDraftLocation(validated.draft).absolutePath
     const publishTimestamp = now()
     const buildStateSnapshotValue = await readBuildState()
     const buildStateSnapshot = await captureFileSnapshot(buildStatePath)
     const publishHistorySnapshot = await captureFileSnapshot(publishHistoryPath)
     const publishedSourceSnapshot = await captureFileSnapshot(livePublishedDocPath)
+    const draftSourceSnapshot = await captureFileSnapshot(liveDraftSourcePath)
     let liveCommitStarted = false
 
     try {
@@ -654,7 +675,7 @@ export function createPublishService(options: PublishServiceOptions = {}): Publi
       await ensureDirectoryPath(dirname(stagedPublishedDocPath))
       await writeFile(stagedPublishedDocPath, toPublishedSource(validated.draft), 'utf8')
 
-      await generateDocsArtifacts({ cwd: workspaceRoot })
+      await generateWorkspaceDocsArtifacts({ cwd: workspaceRoot })
       await runPublicBuild({
         workspaceRoot,
         outDir: stagedBuildPath,
@@ -662,6 +683,7 @@ export function createPublishService(options: PublishServiceOptions = {}): Publi
       liveCommitStarted = true
       await publicBuildRepository.promote({ buildId })
       await promotePublishedSource(validated.draft)
+      await removeDraftSource(validated.draft)
       await appendPublishRecord({
         actor: validated.request.actor.name,
         actorId: validated.request.actor.id,
@@ -685,12 +707,15 @@ export function createPublishService(options: PublishServiceOptions = {}): Publi
           error: null,
         })
       })
+      await syncProjectArtifacts({ cwd: projectRootPath })
     } catch (error) {
       const failureError = error instanceof Error ? error : new Error('Unknown publish failure')
       if (liveCommitStarted) {
         await restoreLiveSnapshot({
           buildId,
           buildStateSnapshot,
+          draftSourcePath: liveDraftSourcePath,
+          draftSourceSnapshot,
           publishHistorySnapshot,
           publishedSourcePath: livePublishedDocPath,
           publishedSourceSnapshot,
@@ -743,6 +768,10 @@ export function createPublishService(options: PublishServiceOptions = {}): Publi
     })
 
   return {
+    async getPublishedPages() {
+      await bootstrapPromise
+      return loadPublishedPages(contentRootPath)
+    },
     async getStatus() {
       await bootstrapPromise
       return queueSystemFileTask(async () => {

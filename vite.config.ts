@@ -2,6 +2,8 @@ import { defineConfig } from 'vitest/config'
 import mdx from '@mdx-js/rollup'
 import react from '@vitejs/plugin-react'
 
+const docsApiTarget = process.env.DOCS_API_TARGET ?? 'http://localhost:3000'
+
 export default defineConfig({
   plugins: [
     mdx({
@@ -10,6 +12,22 @@ export default defineConfig({
     }),
     react(),
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: docsApiTarget,
+        changeOrigin: true,
+      },
+    },
+  },
+  preview: {
+    proxy: {
+      '/api': {
+        target: docsApiTarget,
+        changeOrigin: true,
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,

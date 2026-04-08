@@ -34,9 +34,32 @@ import { Link } from 'react-router-dom'
 import type { MediaAsset } from '../content/site-config'
 import { MdxRenderer } from '../components/mdx-renderer'
 import { useDocsStore } from '../state/docs-store'
-import { validateDraft, type DraftDocInput } from '../lib/docs-engine'
+import { validateDraft, type DraftDocInput, type DocPage } from '../lib/docs-engine'
 import { DocsShell } from './docs-shell'
 import { createDraftFromPage, defaultLocale, latestVersion, pagePath, slugFromText } from './helpers'
+
+type SelectedDocSource = 'draft' | 'published'
+
+function buildSelectedKey(
+  source: SelectedDocSource,
+  page: Pick<DocPage, 'locale' | 'version' | 'slug'>,
+) {
+  return `${source}:${page.locale}:${page.version}:${page.slug}`
+}
+
+function parseSelectedKey(selectedKey: string) {
+  const [source, locale, version, ...slugParts] = selectedKey.split(':')
+  if ((source !== 'draft' && source !== 'published') || !locale || !version || slugParts.length === 0) {
+    return null
+  }
+
+  return {
+    source,
+    locale,
+    version,
+    slug: slugParts.join(':'),
+  } as const
+}
 
 export function AdminPage() {
   const {
@@ -75,17 +98,42 @@ export function AdminPage() {
   const redirectWriteMessage = 'Read-only: redirect writes are not supported by the current docs API yet.'
   const mediaWriteMessage = 'Read-only: media writes are not supported by the current docs API yet.'
 
+  const selectEditorPage = (source: SelectedDocSource, page: DocPage) => {
+    setSelectedKey(buildSelectedKey(source, page))
+    setDraft(createDraftFromPage(page))
+  }
+
   useEffect(() => {
     if (selectedKey === 'new') {
       setDraft(createDraftFromPage())
       return
     }
 
-    const [locale, version, ...slugParts] = selectedKey.split(':')
-    const slug = slugParts.join(':')
-    const selectedDraft = drafts.find((item) => item.locale === locale && item.version === version && item.slug === slug)
-    const selectedPage = pages.find((item) => item.locale === locale && item.version === version && item.slug === slug)
-    setDraft(createDraftFromPage(selectedDraft ?? selectedPage))
+    const selectedEntry = parseSelectedKey(selectedKey)
+    if (!selectedEntry) {
+      return
+    }
+
+    const selectedDraft = drafts.find(
+      (item) =>
+        item.locale === selectedEntry.locale &&
+        item.version === selectedEntry.version &&
+        item.slug === selectedEntry.slug,
+    )
+    const selectedPage = pages.find(
+      (item) =>
+        item.locale === selectedEntry.locale &&
+        item.version === selectedEntry.version &&
+        item.slug === selectedEntry.slug,
+    )
+    const selectedDoc =
+      selectedEntry.source === 'draft'
+        ? selectedDraft ?? selectedPage
+        : selectedPage ?? selectedDraft
+
+    if (selectedDoc) {
+      setDraft(createDraftFromPage(selectedDoc))
+    }
   }, [selectedKey])
 
   const combinedRedirects = [...siteConfig.redirects, ...redirects]
@@ -116,7 +164,7 @@ export function AdminPage() {
     }
 
     if (result.draft) {
-      setSelectedKey(`${result.draft.locale}:${result.draft.version}:${result.draft.slug}`)
+      selectEditorPage('draft', result.draft)
     }
 
     setSaveMessage('Draft saved to the API.')
@@ -137,7 +185,7 @@ export function AdminPage() {
     }
 
     if (saveResult.draft) {
-      setSelectedKey(`${saveResult.draft.locale}:${saveResult.draft.version}:${saveResult.draft.slug}`)
+      selectEditorPage('draft', saveResult.draft)
     }
 
     const publishResult = await publish(draft, {
@@ -276,11 +324,11 @@ export function AdminPage() {
                           </Text>
                           {drafts.map((draftPage) => (
                             <NavLink
-                              active={selectedKey === `${draftPage.locale}:${draftPage.version}:${draftPage.slug}`}
+                              active={selectedKey === buildSelectedKey('draft', draftPage)}
                               description={`${draftPage.locale} / ${draftPage.version}`}
                               key={`draft:${draftPage.id}`}
                               label={`${draftPage.title} (draft)`}
-                              onClick={() => setSelectedKey(`${draftPage.locale}:${draftPage.version}:${draftPage.slug}`)}
+                              onClick={() => selectEditorPage('draft', draftPage)}
                             />
                           ))}
                           <Text c="dimmed" mt="sm" size="xs" tt="uppercase">
@@ -290,11 +338,11 @@ export function AdminPage() {
                       ) : null}
                       {pages.map((page) => (
                         <NavLink
-                          active={selectedKey === `${page.locale}:${page.version}:${page.slug}`}
+                          active={selectedKey === buildSelectedKey('published', page)}
                           description={`${page.locale} · ${page.version}`}
                           key={page.id}
                           label={page.title}
-                          onClick={() => setSelectedKey(`${page.locale}:${page.version}:${page.slug}`)}
+                          onClick={() => selectEditorPage('published', page)}
                         />
                       ))}
                     </Stack>

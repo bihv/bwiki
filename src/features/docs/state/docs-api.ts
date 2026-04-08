@@ -12,6 +12,7 @@ export interface PublishStatus {
 
 export interface DocsAdminState {
   drafts: DocPage[]
+  pages: DocPage[]
   redirects: RedirectRule[]
   media: MediaAsset[]
   publishRecords: PublishRecord[]
@@ -61,6 +62,7 @@ function parseApiErrorMessage(payload: unknown, status: number) {
 async function requestJson<T>(input: string, init?: RequestInit): Promise<T> {
   const response = await fetch(input, {
     ...init,
+    cache: 'no-store',
     headers: {
       Accept: 'application/json',
       ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
@@ -79,9 +81,10 @@ async function requestJson<T>(input: string, init?: RequestInit): Promise<T> {
 }
 
 export async function loadDocsAdminState(): Promise<DocsAdminState> {
-  const [draftsResponse, redirectsResponse, mediaResponse, publishHistoryResponse, siteConfigResponse, publishStatus] =
+  const [draftsResponse, pagesResponse, redirectsResponse, mediaResponse, publishHistoryResponse, siteConfigResponse, publishStatus] =
     await Promise.all([
       requestJson<{ drafts: DocPage[] }>('/api/docs/drafts'),
+      requestJson<{ pages: DocPage[] }>('/api/docs/pages'),
       requestJson<{ redirects: RedirectRule[] }>('/api/docs/system/redirects'),
       requestJson<{ media: MediaAsset[] }>('/api/docs/system/media'),
       requestJson<{ publishHistory: PublishRecord[] }>('/api/docs/system/publish-history'),
@@ -91,6 +94,7 @@ export async function loadDocsAdminState(): Promise<DocsAdminState> {
 
   return {
     drafts: draftsResponse.drafts,
+    pages: pagesResponse.pages,
     redirects: redirectsResponse.redirects,
     media: mediaResponse.media,
     publishRecords: publishHistoryResponse.publishHistory,

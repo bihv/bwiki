@@ -74,6 +74,7 @@ describe('createPublishService', () => {
   it('promotes staged content and a new public build only after the staged rebuild succeeds', async () => {
     const contentRoot = await createTestContentRoot()
     cleanupTasks.push(contentRoot.cleanup)
+    const syncProjectArtifacts = vi.fn(async () => undefined)
 
     await contentRoot.writeContentFile(
       'docs/v2.0/en/guides/cli.mdx',
@@ -105,6 +106,7 @@ describe('createPublishService', () => {
       contentRootPath: contentRoot.contentPath,
       runtimeRootPath: join(contentRoot.rootPath, '.runtime'),
       createBuildId: () => 'build-002',
+      syncProjectArtifacts,
       runPublicBuild: vi.fn(async ({ workspaceRoot, outDir }) => {
         const stagedDoc = await readFile(
           join(workspaceRoot, 'content', 'docs', 'v2.0', 'en', 'guides', 'cli.mdx'),
@@ -136,9 +138,15 @@ describe('createPublishService', () => {
     await expect(contentRoot.readContentFile('docs/v2.0/en/guides/cli.mdx')).resolves.toContain(
       'Updated staged summary.',
     )
+    await expect(contentRoot.readContentFile('drafts/v2.0/en/guides/cli.mdx')).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
     await expect(contentRoot.readContentFile('system/publish-history.json')).resolves.toContain('"targetSlug": "guides/cli"')
     await expect(contentRoot.readContentFile('system/build-state.json')).resolves.toContain('"currentBuildId": "build-002"')
     await expect(contentRoot.readContentFile('system/build-state.json')).resolves.toContain('"status": "ready"')
+    expect(syncProjectArtifacts).toHaveBeenCalledWith({
+      cwd: resolve('.'),
+    })
 
     await expect(
       access(join(contentRoot.rootPath, '.runtime', 'public', 'builds', 'build-002', 'index.html')),

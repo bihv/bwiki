@@ -38,7 +38,7 @@ interface DocsContextValue {
 }
 
 const DocsContext = createContext<DocsContextValue | null>(null)
-const publishedPages = loadSeedDocs()
+const seedPages = loadSeedDocs()
 
 function readRoleStorage(): DocsRole {
   if (typeof window === 'undefined') {
@@ -91,6 +91,7 @@ export function DocsProvider({ children }: PropsWithChildren) {
   const adminSessionIdRef = useRef(0)
   const adminRequestIdRef = useRef(0)
   const [drafts, setDrafts] = useState<DocPage[]>([])
+  const [pages, setPages] = useState<DocPage[]>(seedPages)
   const [publishRecords, setPublishRecords] = useState<PublishRecord[]>([])
   const [redirects, setRedirects] = useState<RedirectRule[]>([])
   const [media, setMedia] = useState<MediaAsset[]>([])
@@ -100,7 +101,7 @@ export function DocsProvider({ children }: PropsWithChildren) {
   const [adminStateError, setAdminStateError] = useState<string | null>(null)
   const [role, setRole] = useState<DocsRole>(readRoleStorage)
 
-  const search = buildDocSearch(publishedPages)
+  const search = buildDocSearch(pages)
   const isAdminRoute = /^\/admin(?:\/|$)/.test(location.pathname)
 
   async function refreshAdminState() {
@@ -120,6 +121,7 @@ export function DocsProvider({ children }: PropsWithChildren) {
       }
 
       setDrafts(adminState.drafts)
+      setPages(adminState.pages)
       setRedirects(adminState.redirects)
       setMedia(adminState.media)
       setPublishRecords(adminState.publishRecords)
@@ -143,6 +145,7 @@ export function DocsProvider({ children }: PropsWithChildren) {
       setAdminStateStatus('ready')
       setAdminStateError(null)
       setDrafts([])
+      setPages(seedPages)
       setRedirects([])
       setMedia([])
       setPublishRecords([])
@@ -166,7 +169,7 @@ export function DocsProvider({ children }: PropsWithChildren) {
     drafts,
     localeOptions: activeSiteConfig.locales,
     media,
-    pages: publishedPages,
+    pages,
     publishRecords,
     publishStatus,
     redirects,
@@ -178,7 +181,7 @@ export function DocsProvider({ children }: PropsWithChildren) {
 
       try {
         const existingDraft = drafts.find((item) => docKey(item) === docKey(draft))
-        const existingPage = publishedPages.find((item) => docKey(item) === docKey(draft))
+        const existingPage = pages.find((item) => docKey(item) === docKey(draft))
         const savedDraft = await persistDraft({
           draft,
           order: existingDraft?.order ?? existingPage?.order ?? 999,
@@ -199,7 +202,7 @@ export function DocsProvider({ children }: PropsWithChildren) {
     },
     async publish(draft, options) {
       const sessionId = adminSessionIdRef.current
-      const validation = validateDraft(draft, publishedPages, {
+      const validation = validateDraft(draft, pages, {
         ...activeSiteConfig,
         redirects: [...activeSiteConfig.redirects, ...redirects],
       })

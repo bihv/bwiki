@@ -92,6 +92,14 @@ export function createDocsRouter(input: {
     }
   })
 
+  router.get('/pages', async (_request, response, next) => {
+    try {
+      response.json({ pages: await input.publishService.getPublishedPages() })
+    } catch (error) {
+      next(error)
+    }
+  })
+
   router.get('/drafts/:locale/:version/*slug', async (request, response, next) => {
     try {
       const params = parseDraftParams(request.params)

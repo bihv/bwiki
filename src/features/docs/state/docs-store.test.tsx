@@ -74,6 +74,14 @@ const updatedDraftPage: DocPage = {
   updatedAt: '2026-04-08T12:34:56.000Z',
 }
 
+const publishedApiPage: DocPage = {
+  ...seedPage,
+  title: 'Published From API',
+  summary: 'Published summary from API',
+  body: '# Published From API',
+  updatedAt: '2026-04-08T11:30:00.000Z',
+}
+
 const redirects: RedirectRule[] = [{ from: 'old-draft', to: 'guides/api-draft', locale: 'en', version: 'v2.0' }]
 const media: MediaAsset[] = [{ id: 'asset-api', title: 'API Diagram', url: '/media/api.png', kind: 'image' }]
 const publishHistory: PublishRecord[] = [
@@ -317,6 +325,7 @@ describe('DocsProvider', () => {
 
     const fetchMock = installFetchMock({
       [keyFor('/api/docs/drafts')]: [{ body: { drafts: [draftPage] } }],
+      [keyFor('/api/docs/pages')]: [{ body: { pages: [publishedApiPage] } }],
       [keyFor('/api/docs/system/redirects')]: [{ body: { redirects } }],
       [keyFor('/api/docs/system/media')]: [{ body: { media } }],
       [keyFor('/api/docs/system/publish-history')]: [{ body: { publishHistory } }],
@@ -361,7 +370,7 @@ describe('DocsProvider', () => {
       expect(screen.getByTestId('drafts')).toHaveTextContent('API Draft')
     })
 
-    expect(screen.getByTestId('pages')).toHaveTextContent('Published Seed')
+    expect(screen.getByTestId('pages')).toHaveTextContent('Published From API')
     expect(screen.getByTestId('drafts')).not.toHaveTextContent('Local Draft')
     expect(screen.getByTestId('redirects')).toHaveTextContent('1')
     expect(screen.getByTestId('media')).toHaveTextContent('1')
@@ -424,6 +433,7 @@ describe('DocsProvider', () => {
   it('keeps queued publish successful when publish-status refresh fails', async () => {
     const fetchMock = installFetchMock({
       [keyFor('/api/docs/drafts')]: [{ body: { drafts: [draftPage] } }],
+      [keyFor('/api/docs/pages')]: [{ body: { pages: [publishedApiPage] } }],
       [keyFor('/api/docs/system/redirects')]: [{ body: { redirects } }],
       [keyFor('/api/docs/system/media')]: [{ body: { media } }],
       [keyFor('/api/docs/system/publish-history')]: [{ body: { publishHistory } }],
@@ -525,6 +535,7 @@ describe('DocsProvider', () => {
           },
         },
       ],
+      [keyFor('/api/docs/pages')]: [{ body: { pages: [publishedApiPage] } }, { body: { pages: [publishedApiPage] } }],
       [keyFor('/api/docs/system/redirects')]: [{ body: { redirects } }, { body: { redirects } }],
       [keyFor('/api/docs/system/media')]: [{ body: { media } }, { body: { media } }],
       [keyFor('/api/docs/system/publish-history')]: [{ body: { publishHistory } }, { body: { publishHistory } }],
@@ -589,6 +600,7 @@ describe('DocsProvider', () => {
   it('ignores in-flight admin responses after navigating away from /admin', async () => {
     const deferredResponses = {
       drafts: createDeferredResponse(),
+      pages: createDeferredResponse(),
       redirects: createDeferredResponse(),
       media: createDeferredResponse(),
       publishHistory: createDeferredResponse(),
@@ -604,6 +616,8 @@ describe('DocsProvider', () => {
       switch (handlerKey) {
         case keyFor('/api/docs/drafts'):
           return deferredResponses.drafts.promise
+        case keyFor('/api/docs/pages'):
+          return deferredResponses.pages.promise
         case keyFor('/api/docs/system/redirects'):
           return deferredResponses.redirects.promise
         case keyFor('/api/docs/system/media'):
@@ -637,6 +651,7 @@ describe('DocsProvider', () => {
     await user.click(screen.getByRole('button', { name: 'Go Home' }))
 
     deferredResponses.drafts.resolve(jsonResponse({ body: { drafts: [draftPage] } }))
+    deferredResponses.pages.resolve(jsonResponse({ body: { pages: [publishedApiPage] } }))
     deferredResponses.redirects.resolve(jsonResponse({ body: { redirects } }))
     deferredResponses.media.resolve(jsonResponse({ body: { media } }))
     deferredResponses.publishHistory.resolve(jsonResponse({ body: { publishHistory } }))
@@ -661,13 +676,14 @@ describe('DocsProvider', () => {
     expect(screen.getByTestId('drafts')).toBeEmptyDOMElement()
     expect(screen.getByTestId('redirects')).toHaveTextContent('0')
     expect(screen.getByTestId('publish-status')).toHaveTextContent('missing')
-    expect(fetchMock).toHaveBeenCalledTimes(6)
+    expect(fetchMock).toHaveBeenCalledTimes(7)
   })
 
   it('ignores saveDraft state updates after navigating away from /admin', async () => {
     const deferredSave = createDeferredResponse()
     const fetchMock = installFetchMock({
       [keyFor('/api/docs/drafts')]: [{ body: { drafts: [draftPage] } }],
+      [keyFor('/api/docs/pages')]: [{ body: { pages: [publishedApiPage] } }],
       [keyFor('/api/docs/system/redirects')]: [{ body: { redirects } }],
       [keyFor('/api/docs/system/media')]: [{ body: { media } }],
       [keyFor('/api/docs/system/publish-history')]: [{ body: { publishHistory } }],
@@ -697,6 +713,7 @@ describe('DocsProvider', () => {
 
       const queue = {
         [keyFor('/api/docs/drafts')]: [{ body: { drafts: [draftPage] } }],
+        [keyFor('/api/docs/pages')]: [{ body: { pages: [publishedApiPage] } }],
         [keyFor('/api/docs/system/redirects')]: [{ body: { redirects } }],
         [keyFor('/api/docs/system/media')]: [{ body: { media } }],
         [keyFor('/api/docs/system/publish-history')]: [{ body: { publishHistory } }],
