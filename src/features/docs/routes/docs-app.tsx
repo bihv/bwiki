@@ -50,7 +50,7 @@ function AdminLoginRouteGate() {
   }
 
   if (!authEnabled || authStatus === 'authenticated') {
-    return <Navigate replace to="/admin" />
+    return <Navigate replace to="/admin/pages" />
   }
 
   return <AdminLoginPage />
@@ -68,7 +68,8 @@ export function DocsApp() {
       <Routes>
         <Route element={<HomePage />} path="/" />
         <Route element={<DocsReaderPage />} path="/docs/:locale/:version/*" />
-        <Route element={<AdminRouteGate />} path="/admin" />
+        <Route element={<Navigate replace to="/admin/pages" />} path="/admin" />
+        <Route element={<AdminRouteGate />} path="/admin/*" />
         <Route element={<AdminLoginRouteGate />} path="/admin/login" />
         <Route element={<Navigate replace to="/" />} path="*" />
       </Routes>

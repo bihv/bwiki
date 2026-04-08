@@ -98,4 +98,39 @@ describe('DocsApp', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/api/docs/auth/session', expect.anything())
   })
+
+  it('protects nested admin routes like /admin/pages when auth is enabled and no session exists', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      const method = init?.method ?? 'GET'
+
+      if (`${method.toUpperCase()} ${url}` === keyFor('/api/docs/auth/session')) {
+        return jsonResponse({
+          authEnabled: true,
+          authenticated: false,
+          username: null,
+        })
+      }
+
+      throw new Error(`Unhandled fetch: ${method.toUpperCase()} ${url}`)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <MantineProvider>
+        <MemoryRouter initialEntries={['/admin/pages']}>
+          <DocsProvider>
+            <DocsApp />
+          </DocsProvider>
+        </MemoryRouter>
+      </MantineProvider>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Admin sign in' })).toBeInTheDocument()
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/docs/auth/session', expect.anything())
+  })
 })
