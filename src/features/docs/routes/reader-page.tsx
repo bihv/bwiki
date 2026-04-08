@@ -99,7 +99,7 @@ export function DocsReaderPage() {
 
   if (!page) {
     return (
-      <DocsShell locale={requestedLocale} version={requestedVersion}>
+      <DocsShell>
         <Stack gap="md" maw={640}>
           <Badge color="red" radius="sm" variant="light" w="fit-content">
             Missing page
@@ -118,7 +118,6 @@ export function DocsReaderPage() {
 
   return (
     <DocsShell
-      locale={activeLocale}
       localeSwitcher={
         <Select
           aria-label="Select locale"
@@ -128,7 +127,6 @@ export function DocsReaderPage() {
           w={150}
         />
       }
-      version={activeVersion}
       versionSwitcher={
         <Select
           aria-label="Select version"

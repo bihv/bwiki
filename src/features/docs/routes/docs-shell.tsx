@@ -1,11 +1,9 @@
 import {
   ActionIcon,
-  Badge,
   Box,
   Button,
   Container,
   Group,
-  Text,
 } from '@mantine/core'
 import { useMantineColorScheme } from '@mantine/core'
 import { IconBook2, IconMoon, IconSettings, IconSun } from '@tabler/icons-react'
@@ -16,15 +14,11 @@ import { defaultLocale, latestVersion, pagePath } from './helpers'
 
 export function DocsShell({
   children,
-  locale,
   localeSwitcher,
-  version,
   versionSwitcher,
 }: {
   children: ReactNode
-  locale: string
   localeSwitcher?: ReactNode
-  version: string
   versionSwitcher?: ReactNode
 }) {
   const { colorScheme, setColorScheme } = useMantineColorScheme()
@@ -33,15 +27,7 @@ export function DocsShell({
   return (
     <Box className="app-frame">
       <Container py={28} size="xl">
-        <Group justify="space-between" mb="lg">
-          <Group gap="sm">
-            <Badge color="orange" radius="sm" variant="filled">
-              BWiki
-            </Badge>
-            <Text c="dimmed" size="sm">
-              {location.pathname.startsWith('/admin') ? 'Editorial control room' : `Reader · ${locale} · ${version}`}
-            </Text>
-          </Group>
+        <Group justify="flex-end" mb="lg">
           <Group gap="sm">
             {location.pathname.startsWith('/admin') ? null : (
               <>

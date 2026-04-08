@@ -202,7 +202,7 @@ export function AdminPage() {
   }
 
   return (
-    <DocsShell locale={defaultLocale} version={latestVersion}>
+    <DocsShell>
       <Tabs defaultValue="dashboard" variant="none">
         <Tabs.List mb="lg">
           <Tabs.Tab leftSection={<IconBulb size={16} />} value="dashboard">
