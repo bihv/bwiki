@@ -1,0 +1,46 @@
+---
+title: CLI Guide
+summary: Operate the docs system with validation, indexing, and publishing checkpoints.
+slug: guides/cli
+section: Guides
+order: 1
+tags:
+  - cli
+  - publishing
+translationKey: cli
+translationStatus: current
+status: published
+---
+# CLI Guide
+
+<Callout tone="success" title="Why this page matters">
+The runtime app is browser-first, but the workflow mirrors what a real content pipeline would do in CI: validate, build search, and publish.
+</Callout>
+
+The browser demo uses local storage instead of a backend, but the information architecture is deliberately close to a production docs system. Validation, search indexing, redirect management, and publish history are all modeled as explicit steps.
+
+## Recommended pipeline
+
+<DocAccordion>
+  <DocAccordionItem label="1. Validate frontmatter">
+    Require slug, locale, version, translation key, summary, and a non-empty body before any publish action can continue.
+  </DocAccordionItem>
+  <DocAccordionItem label="2. Check internal links">
+    Scan `/docs/:locale/:version/:slug` references and block the publish when any destination does not exist.
+  </DocAccordionItem>
+  <DocAccordionItem label="3. Rebuild search">
+    Reindex the published page set so search results remain scoped to the active locale and release.
+  </DocAccordionItem>
+</DocAccordion>
+
+## Sample embed
+
+<ExternalEmbed
+  title="Editorial workflow walkthrough"
+  url="https://www.youtube.com/embed/dQw4w9WgXcQ"
+  kind="youtube"
+/>
+
+## Related reading
+
+Continue with the editorial workflow guide to see how drafts, preview, and audit records hang together.

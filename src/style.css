@@ -1,0 +1,179 @@
+:root {
+  font-family: Aptos, 'Segoe UI Variable Text', 'Trebuchet MS', sans-serif;
+  color: #132430;
+  background:
+    radial-gradient(circle at top left, rgba(212, 149, 94, 0.14), transparent 26%),
+    linear-gradient(180deg, #f5efe7 0%, #f8f4ee 46%, #fffdf9 100%);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+body,
+#app {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-frame,
+.landing-shell {
+  min-height: 100vh;
+}
+
+.landing-hero {
+  background:
+    linear-gradient(135deg, rgba(11, 33, 48, 0.94) 0%, rgba(23, 50, 64, 0.92) 48%, rgba(201, 154, 69, 0.2) 100%),
+    url('/editorial-surface.svg');
+  background-position: center;
+  background-size: cover;
+  color: white;
+  overflow: hidden;
+}
+
+.landing-title {
+  max-width: 12ch;
+  font-size: clamp(3rem, 6vw, 5.4rem);
+  line-height: 0.96;
+  letter-spacing: -0.05em;
+}
+
+.landing-summary {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.docs-shell .mantine-AppShell-navbar {
+  background: transparent;
+}
+
+.docs-navbar {
+  border-right: 0;
+}
+
+.docs-prose {
+  color: #1e3140;
+  line-height: 1.8;
+}
+
+.docs-prose > * + * {
+  margin-top: 1.1rem;
+}
+
+.docs-prose h1,
+.docs-prose h2,
+.docs-prose h3,
+.docs-prose h4 {
+  font-family: 'Iowan Old Style', Georgia, serif;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  margin-top: 2.4rem;
+  scroll-margin-top: 7rem;
+}
+
+.docs-prose h1 {
+  font-size: clamp(2.2rem, 4vw, 3.6rem);
+}
+
+.docs-prose h2 {
+  font-size: clamp(1.5rem, 2.2vw, 2.2rem);
+}
+
+.docs-prose h3 {
+  font-size: 1.35rem;
+}
+
+.docs-prose p,
+.docs-prose li {
+  font-size: 1.02rem;
+}
+
+.docs-prose ul,
+.docs-prose ol {
+  padding-left: 1.25rem;
+}
+
+.docs-prose img,
+.docs-prose iframe {
+  max-width: 100%;
+}
+
+.crumb-link {
+  color: #687885;
+  font-size: 0.92rem;
+}
+
+.nav-section-label {
+  color: #687885;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin-top: 0.75rem;
+  text-transform: uppercase;
+}
+
+.toc-link {
+  color: #425463;
+  display: block;
+  font-size: 0.95rem;
+  padding-block: 0.18rem;
+}
+
+.toc-link:hover {
+  color: #0f2230;
+}
+
+@media (max-width: 75rem) {
+  .landing-title {
+    max-width: 14ch;
+  }
+}
+
+@media (max-width: 62rem) {
+  .landing-hero {
+    padding: 1.75rem !important;
+  }
+
+  .landing-title {
+    max-width: none;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #edf2f6;
+    background:
+      radial-gradient(circle at top left, rgba(199, 113, 79, 0.18), transparent 22%),
+      linear-gradient(180deg, #081621 0%, #102534 52%, #0e1e2b 100%);
+  }
+
+  .docs-prose {
+    color: #d4dde4;
+  }
+
+  .crumb-link,
+  .nav-section-label,
+  .toc-link {
+    color: #9db0bc;
+  }
+
+  .toc-link:hover {
+    color: #f5f0ea;
+  }
+}

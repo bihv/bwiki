@@ -1,0 +1,34 @@
+---
+title: Editorial Workflow
+summary: Coordinate drafts, preview, publish, redirects, and translation health.
+slug: guides/editorial-flow
+section: Guides
+order: 2
+tags:
+  - editorial
+  - workflow
+translationKey: editorial-flow
+translationStatus: current
+status: published
+---
+# Editorial Workflow
+
+Editors work in a narrow loop: shape metadata, review the rendered page, validate the content graph, then publish into the active version and locale.
+
+## Draft checklist
+
+<CardGrid>
+  <Card title="Metadata">
+    Title, summary, slug, translation key, and section keep the docs tree stable.
+  </Card>
+  <Card title="Preview">
+    Render the same MDX component registry in the editor preview and the public reader.
+  </Card>
+  <Card title="Audit">
+    Keep actor, timestamp, locale, version, and target slug for every publish event.
+  </Card>
+</CardGrid>
+
+## Translation status
+
+Use `current`, `outdated`, and `missing` to show which locales need attention. Missing translations should not crash the reader. They should fall back gracefully to the default locale and explain why.

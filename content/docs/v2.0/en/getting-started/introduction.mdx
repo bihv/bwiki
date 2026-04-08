@@ -1,0 +1,53 @@
+---
+title: Introduction
+summary: Start a public docs system with versioning, locales, and component-rich markdown.
+slug: getting-started/introduction
+section: Getting Started
+order: 1
+tags:
+  - intro
+  - setup
+translationKey: intro
+translationStatus: current
+status: published
+---
+# Introduction
+
+<Callout tone="info" title="Source of truth">
+Seed docs live in the repository as MDX, while the admin area can publish browser-side overrides for fast iteration.
+</Callout>
+
+BWiki combines an editorial reading surface with a lightweight control room for editors. The public reader stays clean, while the authoring flow keeps metadata, validation, preview, and publish status close together.
+
+## What ships in v2.0
+
+<CardGrid>
+  <Card title="Locale-aware routing" eyebrow="Public docs">
+    Every route keeps locale, version, and slug together so a page can preserve context when readers switch language or release.
+  </Card>
+  <Card title="Structured editorial flow" eyebrow="Admin">
+    Editors can draft, preview, validate, and publish without leaving the browser, while content files remain the canonical baseline.
+  </Card>
+  <Card title="Whitelisted embeds" eyebrow="MDX">
+    Markdown pages can opt into approved callouts, tabs, cards, figures, and embeds without arbitrary React injection.
+  </Card>
+</CardGrid>
+
+## Reading modes
+
+<DocTabs>
+  <DocTab label="Readers">
+    Readers get fast navigation, full-text search, breadcrumbs, table of contents, and version or locale fallbacks when a page is missing.
+  </DocTab>
+  <DocTab label="Editors">
+    Editors see draft validation, audit history, redirects, and content health metrics in the admin workspace.
+  </DocTab>
+</DocTabs>
+
+## Visual language
+
+<Figure src="/editorial-surface.svg" alt="Editorial docs surface" caption="The reader uses a wide editorial canvas with restrained chrome and a separate knowledge rail." />
+
+## Next stop
+
+Head to the CLI guide for search, reindex, and publishing patterns that mirror a production docs pipeline.

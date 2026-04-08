@@ -1,0 +1,45 @@
+{
+  "locales": [
+    {
+      "key": "en",
+      "label": "English",
+      "isDefault": true
+    },
+    {
+      "key": "vi",
+      "label": "Tieng Viet"
+    }
+  ],
+  "versions": [
+    {
+      "key": "v2.0",
+      "label": "2.0",
+      "isLatest": true,
+      "isStable": true
+    },
+    {
+      "key": "v1.0",
+      "label": "1.0",
+      "isDeprecated": true
+    }
+  ],
+  "componentRegistry": [
+    "Callout",
+    "DocTabs",
+    "DocTab",
+    "DocAccordion",
+    "DocAccordionItem",
+    "CardGrid",
+    "Card",
+    "Figure",
+    "ExternalEmbed"
+  ],
+  "redirects": [
+    {
+      "from": "setup/intro",
+      "to": "getting-started/introduction",
+      "locale": "en",
+      "version": "v1.0"
+    }
+  ]
+}
