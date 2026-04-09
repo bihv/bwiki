@@ -6,7 +6,6 @@ import {
   Burger,
   Grid,
   Group,
-  Loader,
   NavLink,
   Paper,
   ScrollArea,
@@ -33,7 +32,6 @@ import {
   IconMoon,
   IconPhoto,
   IconPlus,
-  IconRefresh,
   IconRoute,
   IconSearch,
   IconSettings,
@@ -250,9 +248,6 @@ function optionLabel(options: Array<{ key: string; label: string }>, key: string
 export function AdminPage() {
   const {
     authEnabled,
-    authUsername,
-    adminStateError,
-    adminStateStatus,
     drafts,
     logout,
     localeOptions,
@@ -261,7 +256,6 @@ export function AdminPage() {
     publishRecords,
     publishStatus,
     redirects,
-    refreshAdminState,
     role,
     saveDraft,
     publish,
@@ -307,7 +301,7 @@ export function AdminPage() {
   const combinedRedirects = [...siteConfig.redirects, ...redirects]
   const validation = validateDraft(draft, pages, { ...siteConfig, redirects: combinedRedirects })
   const missingTranslations = pages.filter((page) => page.translationStatus !== 'current').length
-  const currentPublishStatus = publishStatus?.status ?? (adminStateStatus === 'loading' ? 'loading' : 'unknown')
+  const currentPublishStatus = publishStatus?.status ?? 'unknown'
   const libraryEntries = buildLibraryEntries(drafts, pages)
   const query = pagesQuery.trim().toLowerCase()
   const filteredEntries = libraryEntries.filter((entry) => {
@@ -1116,7 +1110,6 @@ export function AdminPage() {
       <AppShell
         className="docs-shell"
         header={{ height: { base: 124, md: 68 } }}
-        mode="static"
         navbar={{
           width: 220,
           breakpoint: 'md',
@@ -1145,24 +1138,10 @@ export function AdminPage() {
               <Button component={Link} leftSection={<IconBook2 size={16} />} radius="xl" to={pagePath(defaultLocale, latestVersion, 'getting-started/introduction')} variant="default">
                 Docs
               </Button>
-              <Button
-                leftSection={adminStateStatus === 'loading' ? <Loader size={14} /> : <IconRefresh size={16} />}
-                loading={adminStateStatus === 'loading'}
-                onClick={() => void refreshAdminState()}
-                radius="xl"
-                variant="default"
-              >
-                Refresh API state
-              </Button>
               {authEnabled ? (
-                <>
-                  <Badge color="teal" radius="xl" size="lg" variant="light">
-                    Signed in as {authUsername ?? 'admin'}
-                  </Badge>
-                  <Button loading={isLoggingOut} onClick={() => void handleLogout()} radius="xl" variant="default">
-                    Sign out
-                  </Button>
-                </>
+                <Button loading={isLoggingOut} onClick={() => void handleLogout()} radius="xl" variant="default">
+                  Sign out
+                </Button>
               ) : (
                 <SegmentedControl
                   data={[
@@ -1205,25 +1184,14 @@ export function AdminPage() {
 
         <AppShell.Main>
           <Stack gap="lg">
-            <Stack gap="xs">
-              <Group gap="sm" wrap="wrap">
-                <Badge color={adminStateStatus === 'error' ? 'red' : adminStateStatus === 'ready' ? 'teal' : 'gray'} radius="sm" variant="light">
-                  Admin state: {adminStateStatus}
-                </Badge>
-                <Badge color={currentPublishStatus === 'queued' ? 'orange' : 'blue'} radius="sm" variant="light">
-                  Publish status: {currentPublishStatus}
-                </Badge>
-                <Badge color={missingTranslations > 0 ? 'orange' : 'teal'} radius="sm" variant="light">
-                  Translation attention: {missingTranslations}
-                </Badge>
-              </Group>
-
-              {adminStateError ? (
-                <Text c="red" size="sm">
-                  {adminStateError}
-                </Text>
-              ) : null}
-            </Stack>
+            <Group gap="sm" wrap="wrap">
+              <Badge color={currentPublishStatus === 'queued' ? 'orange' : 'blue'} radius="sm" variant="light">
+                Publish status: {currentPublishStatus}
+              </Badge>
+              <Badge color={missingTranslations > 0 ? 'orange' : 'teal'} radius="sm" variant="light">
+                Translation attention: {missingTranslations}
+              </Badge>
+            </Group>
 
             {currentSection === 'dashboard' ? dashboardPanel : null}
             {currentSection === 'pages' ? pagesPanel : null}

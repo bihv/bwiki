@@ -64,6 +64,30 @@ describe('DocsApp', () => {
     vi.restoreAllMocks()
   })
 
+  it('renders public docs routes with shared shell controls and reader content', async () => {
+    render(
+      <MantineProvider>
+        <MemoryRouter initialEntries={['/docs/en/v2.0/getting-started/introduction']}>
+          <DocsProvider>
+            <DocsApp />
+          </DocsProvider>
+        </MemoryRouter>
+      </MantineProvider>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('On this page')).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('combobox', { name: 'Select locale' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Select version' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Docs' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Toggle color scheme' })).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Search this release')).toBeInTheDocument()
+    expect(screen.getByText('On this page')).toBeInTheDocument()
+  })
+
   it('redirects /admin to /admin/login when admin auth is enabled and no session exists', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
@@ -95,6 +119,10 @@ describe('DocsApp', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Admin sign in' })).toBeInTheDocument()
     })
+
+    expect(screen.getByRole('link', { name: 'Docs' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Toggle color scheme' })).toBeInTheDocument()
 
     expect(fetchMock).toHaveBeenCalledWith('/api/docs/auth/session', expect.anything())
   })

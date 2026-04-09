@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  AppShell,
   Box,
   Button,
   Container,
@@ -11,6 +12,8 @@ import { type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
 import { defaultLocale, latestVersion, pagePath } from './helpers'
+
+export const PUBLIC_HEADER_HEIGHT = { base: 124, md: 68 } as const
 
 export function DocsShell({
   children,
@@ -27,38 +30,79 @@ export function DocsShell({
   const location = useLocation()
   const isAdminRoute = location.pathname.startsWith('/admin')
 
+  const docsButton = (
+    <Button
+      component={Link}
+      leftSection={<IconBook2 size={16} />}
+      radius="xl"
+      to={pagePath(defaultLocale, latestVersion, 'getting-started/introduction')}
+      variant="default"
+    >
+      Docs
+    </Button>
+  )
+
+  const adminButton = (
+    <Button component={Link} leftSection={<IconSettings size={16} />} radius="xl" to="/admin/pages" variant={isAdminRoute ? 'filled' : 'default'}>
+      Admin
+    </Button>
+  )
+
+  const colorSchemeToggle = (
+    <ActionIcon
+      aria-label="Toggle color scheme"
+      onClick={() => setColorScheme(colorScheme === 'dark' ? 'light' : 'dark')}
+      radius="xl"
+      size="lg"
+      variant="default"
+    >
+      {colorScheme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+    </ActionIcon>
+  )
+
   return (
     <Box className="app-frame">
-      <Container pb={28} pt={hideTopBar ? 12 : 28} size="xl">
-        {hideTopBar ? null : (
-          <Group justify="flex-end" mb="lg">
-            <Group gap="sm">
-              {isAdminRoute ? null : (
-                <>
-                  {localeSwitcher}
-                  {versionSwitcher}
-                </>
-              )}
-              <Button component={Link} leftSection={<IconBook2 size={16} />} radius="xl" to={pagePath(defaultLocale, latestVersion, 'getting-started/introduction')} variant="default">
-                Docs
-              </Button>
-              <Button component={Link} leftSection={<IconSettings size={16} />} radius="xl" to="/admin/pages" variant={isAdminRoute ? 'filled' : 'default'}>
-                Admin
-              </Button>
-              <ActionIcon
-                aria-label="Toggle color scheme"
-                onClick={() => setColorScheme(colorScheme === 'dark' ? 'light' : 'dark')}
-                radius="xl"
-                size="lg"
-                variant="default"
-              >
-                {colorScheme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
-              </ActionIcon>
-            </Group>
-          </Group>
-        )}
-        {children}
-      </Container>
+      {hideTopBar ? (
+        <Container pb={28} pt={12} size="xl">
+          {children}
+        </Container>
+      ) : (
+        <AppShell
+          className="docs-shell-frame"
+          header={{ height: PUBLIC_HEADER_HEIGHT }}
+          padding={0}
+          styles={{
+            main: {
+              background: 'transparent',
+            },
+          }}
+        >
+          <AppShell.Header className="docs-shell-header">
+            <Container className="docs-shell-header-inner" h="100%" size="xl">
+              <Box className="docs-shell-header-layout">
+                {isAdminRoute ? null : (
+                  <Box className="docs-shell-switchers">
+                    {localeSwitcher}
+                    {versionSwitcher}
+                  </Box>
+                )}
+
+                <Group className="docs-shell-mobile-actions" gap="sm" wrap="nowrap">
+                  <Box className="docs-shell-mobile-action">{docsButton}</Box>
+                  <Box className="docs-shell-mobile-action">{adminButton}</Box>
+                  {colorSchemeToggle}
+                </Group>
+              </Box>
+            </Container>
+          </AppShell.Header>
+
+          <AppShell.Main>
+            <Container pb={28} pt={12} size="xl">
+              {children}
+            </Container>
+          </AppShell.Main>
+        </AppShell>
+      )}
     </Box>
   )
 }

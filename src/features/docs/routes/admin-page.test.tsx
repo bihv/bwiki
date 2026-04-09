@@ -180,4 +180,14 @@ describe('AdminPage editor', () => {
     })
     expect(screen.getByRole('heading', { name: 'Introduction' })).toBeInTheDocument()
   })
+
+  it('renders admin header actions together with the editor workspace', async () => {
+    renderAdminEditor()
+
+    await screen.findByRole('heading', { name: 'Introduction' })
+
+    expect(screen.getByRole('heading', { name: 'Editorial workspace' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Docs' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Toggle color scheme' })).toBeInTheDocument()
+  })
 })

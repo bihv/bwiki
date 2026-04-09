@@ -1,6 +1,6 @@
 import {
-  AppShell,
   Badge,
+  Box,
   Breadcrumbs,
   Button,
   Divider,
@@ -124,7 +124,7 @@ export function DocsReaderPage() {
           data={publicDocsSiteConfig.locales.map((locale) => ({ value: locale.key, label: locale.label }))}
           onChange={handleLocaleChange}
           value={activeLocale}
-          w={150}
+          w={{ base: '100%', xs: 150 }}
         />
       }
       versionSwitcher={
@@ -136,22 +136,12 @@ export function DocsReaderPage() {
           }))}
           onChange={handleVersionChange}
           value={activeVersion}
-          w={180}
+          w={{ base: '100%', xs: 180 }}
         />
       }
     >
-      <AppShell
-        className="docs-shell"
-        header={{ height: 0 }}
-        navbar={{ breakpoint: 'md', width: 300 }}
-        padding="lg"
-        styles={{
-          main: {
-            background: 'transparent',
-          },
-        }}
-      >
-        <AppShell.Navbar className="docs-navbar">
+      <Box className="docs-reader-layout">
+        <Box className="docs-navbar docs-reader-nav">
           <Stack gap="md" h="100%" p="md">
             <TextInput
               leftSection={<IconSearch size={16} />}
@@ -194,9 +184,9 @@ export function DocsReaderPage() {
               </Stack>
             </ScrollArea>
           </Stack>
-        </AppShell.Navbar>
+        </Box>
 
-        <AppShell.Main>
+        <Box className="docs-reader-main">
           <Grid gap="xl">
             <Grid.Col span={{ base: 12, xl: 8 }}>
               <Stack className="docs-content" gap="lg">
@@ -293,8 +283,8 @@ export function DocsReaderPage() {
               </Stack>
             </Grid.Col>
           </Grid>
-        </AppShell.Main>
-      </AppShell>
+        </Box>
+      </Box>
     </DocsShell>
   )
 }
